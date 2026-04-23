@@ -1,7 +1,9 @@
 package com.aisolutions.claimmanagement.resource.v1.staffclaim;
 
+import com.aisolutions.claimmanagement.dto.OcrReceiptResultDTO;
 import com.aisolutions.claimmanagement.dto.StaffClaimDetailDTO;
 import com.aisolutions.claimmanagement.service.attachment.AttachmentService;
+import com.aisolutions.claimmanagement.service.ocr.ReceiptOcrService;
 import com.aisolutions.claimmanagement.service.staffclaim.StaffClaimDetailService;
 
 import io.smallrye.mutiny.Uni;
@@ -31,6 +33,7 @@ public class StaffClaimDetailResource {
 
     @Inject StaffClaimDetailService claimService;
     @Inject AttachmentService attachmentService;
+    @Inject ReceiptOcrService ocrService;
 
     // ─────────────────────────────────────────────────────────
     //  CREATE (multipart with optional photo)
@@ -88,6 +91,53 @@ public class StaffClaimDetailResource {
     // ─────────────────────────────────────────────────────────
     //  READ
     // ─────────────────────────────────────────────────────────
+
+    // ─────────────────────────────────────────────────────────
+    //  SCAN RECEIPT — OpenAI Vision OCR
+    // ─────────────────────────────────────────────────────────
+
+    /**
+     * POST /api/v1/staff-claims-det/scan-receipt
+     *
+     * Accepts a receipt photo and extracts: merchantName, receiptNumber,
+     * receiptDate, receiptAmount using GPT-4o Vision.
+     * Returns OcrReceiptResultDTO for the frontend to pre-fill the claim form.
+     */
+    @POST
+    @Path("/scan-receipt")
+    @Consumes(MediaType.MULTIPART_FORM_DATA)
+    public Uni<Response> scanReceipt(
+            @RestForm("photo") FileUpload photo) {
+
+        if (photo == null) {
+            return Uni.createFrom().item(
+                Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of("error", "Photo is required"))
+                    .build());
+        }
+
+        byte[] imageBytes;
+        try {
+            imageBytes = Files.readAllBytes(photo.uploadedFile());
+        } catch (IOException e) {
+            return Uni.createFrom().item(
+                Response.serverError()
+                    .entity(Map.of("error", "Failed to read photo: " + e.getMessage()))
+                    .build());
+        }
+
+        String mimeType = photo.contentType() != null ? photo.contentType() : "image/jpeg";
+
+        return ocrService.extractFromImage(imageBytes, mimeType)
+            .map(result -> Response.ok(result).build())
+            .onFailure().recoverWithItem(err -> {
+                System.err.println("[ScanReceipt] Error: " + err.getMessage());
+                OcrReceiptResultDTO errResult = new OcrReceiptResultDTO();
+                errResult.setSuccess(false);
+                errResult.setErrorMessage(err.getMessage());
+                return Response.serverError().entity(errResult).build();
+            });
+    }
 
     @GET
     @Path("/{id}")
