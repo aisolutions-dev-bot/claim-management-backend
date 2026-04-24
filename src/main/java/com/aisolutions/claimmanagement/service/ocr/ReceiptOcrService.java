@@ -1,7 +1,7 @@
 package com.aisolutions.claimmanagement.service.ocr;
 
 import com.aisolutions.claimmanagement.client.OpenAIClient;
-import com.aisolutions.claimmanagement.client.OpenAIClient.OpenAIRequest;
+import com.aisolutions.claimmanagement.client.OpenAIClient.*;
 import com.aisolutions.claimmanagement.dto.OcrReceiptResultDTO;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -73,9 +73,14 @@ public class ReceiptOcrService {
         String base64 = Base64.getEncoder().encodeToString(imageBytes);
         String mime = (mimeType != null && !mimeType.isBlank()) ? mimeType : "image/jpeg";
 
-        // Build vision message — system (text) + user (text + image)
-        var systemMsg = OpenAIRequest.textMessage("system", SYSTEM_PROMPT);
-        var userMsg   = OpenAIRequest.visionMessage("user", USER_PROMPT, base64, mime);
+        // System message: text only
+        var systemMsg = new TextMessage("system", SYSTEM_PROMPT);
+
+        // User message: vision — text prompt + base64 image
+        var userMsg = new VisionMessage("user", List.of(
+            ContentPart.text(USER_PROMPT),
+            ContentPart.image(base64, mime)
+        ));
 
         OpenAIRequest request = new OpenAIRequest(List.of(systemMsg, userMsg));
         request.model = "gpt-4o-mini";
