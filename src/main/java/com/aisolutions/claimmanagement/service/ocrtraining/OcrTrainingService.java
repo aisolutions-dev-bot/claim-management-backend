@@ -764,9 +764,15 @@ public class OcrTrainingService {
     }
 
     private OcrReceiptResultDTO copy(OcrReceiptResultDTO src) {
-        return new OcrReceiptResultDTO(
-            src.getMerchantName(), src.getReceiptNumber(), src.getReceiptDate(),
-            src.getReceiptAmount(), src.getRawText());
+        OcrReceiptResultDTO dto = new OcrReceiptResultDTO();
+        dto.setMerchantName(src.getMerchantName());
+        dto.setReceiptNumber(src.getReceiptNumber());
+        dto.setReceiptDate(src.getReceiptDate());
+        dto.setReceiptAmount(src.getReceiptAmount());
+        dto.setRawText(src.getRawText());
+        dto.setSuccess(src.isSuccess());
+        dto.setErrorMessage(src.getErrorMessage());
+        return dto;
     }
 
     private String substring(String s, int n) {
